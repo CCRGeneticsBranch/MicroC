@@ -1,0 +1,5 @@
+bwa: "bwa"
+pairtools: "pairtools"
+samtools: "samtools"
+preseq: "preseq"
+juicer: "juicer"

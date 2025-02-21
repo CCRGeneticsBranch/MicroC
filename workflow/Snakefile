@@ -1,0 +1,162 @@
+# Micro-C pipeline, based on https://micro-c.readthedocs.io/en/latest/index.html
+
+# Import python libraries
+import os
+from os.path import join
+import itertools
+import yaml
+import pandas as pd
+
+# Set directories
+WORKDIR = config["workdir"]
+RESULTSDIR = join(WORKDIR,"results")
+MICROCDIR = config["microcdir"]
+
+# Get list of samples
+manifest = pd.read_table(config["manifest"])
+SAMPLES =  manifest['Sample'].unique()
+FASTQ_R1 = dict(zip(manifest['Sample'], manifest['R1']))
+FASTQ_R2 = dict(zip(manifest['Sample'], manifest['R2']))
+
+# Define tools
+with open(config["tools"]) as f:
+    TOOLS = yaml.safe_load(f)
+
+# Define resources per rule
+with open(config["cluster"]) as f:
+    CLUSTER = yaml.safe_load(f)
+
+getthreads=lambda rname:int(CLUSTER[rname]["threads"]) if rname in CLUSTER and "threads" in CLUSTER[rname] else int(CLUSTER["__default__"]["threads"])
+getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUSTER[rname] else CLUSTER["__default__"]["mem"]
+
+# Define genomes
+genome = config['genome']
+
+# Rules
+localrules: library_qc
+
+rule all:
+    input:
+        # Stats file
+        expand(join(RESULTSDIR,"bam","{samples}.dedup_stats.txt"),samples=SAMPLES),
+
+        # Final bam and pairs files
+        expand(join(RESULTSDIR,"bam","{samples}.pairs.gz"),samples=SAMPLES),
+        expand(join(RESULTSDIR,"bam","{samples}.final.bam"),samples=SAMPLES),
+
+        # QC summary
+        expand(join(RESULTSDIR,"qc","{samples}.qc.txt"),samples=SAMPLES),
+
+        # Preseq
+        expand(join(RESULTSDIR,"qc","{samples}.preseq"),samples=SAMPLES),
+
+        # Contact map
+        expand(join(RESULTSDIR,"hic","{samples}.hic"),samples=SAMPLES)
+
+rule align:
+    """Align reads to reference genome"""
+    input:
+        fastq_R1=lambda wildcards: f"{FASTQ_R1[wildcards.sample]}",
+        fastq_R2=lambda wildcards: f"{FASTQ_R2[wildcards.sample]}"
+    output:
+        sam=temp(join(RESULTSDIR,"bam","{sample}.sam"))
+    params:
+        bwa_ref = config[genome]['bwa_ref'],
+        rg="{sample}"
+    threads:
+        getthreads("align")
+    envmodules:
+        TOOLS["bwa"]
+    shell:
+        """
+        bwa mem -5SP -T0 -t{threads} -R "@RG\\tID:{params.rg}\\tSM:{params.rg}\\tLB:{params.rg}\\tPL:ILLUMINA\\tPU:none" \
+        {params.bwa_ref} {input.fastq_R1} {input.fastq_R2} -o {output.sam}
+        """
+
+rule generate_pairs:
+    """
+    Generate pairs file
+    Find ligation junctions from alignments with high mapping quality
+    Records 5' outermost aligned base, read strands, pair type (flips so first read has lower coordinate)
+    Sorts file
+    Marks and removes PCR duplicates
+    Splits into bam and pairs files, sort/index
+    """
+    input:
+        sam=join(RESULTSDIR,"bam","{sample}.sam")
+    output:
+        pairsam=temp(join(RESULTSDIR,"bam","{sample}.parsed.pairsam")),
+        sorted=temp(join(RESULTSDIR,"bam","{sample}.sorted.pairsam")),
+        dedup=temp(join(RESULTSDIR,"bam","{sample}.dedup.pairsam")),
+        stats=join(RESULTSDIR,"bam","{sample}.dedup_stats.txt"),
+        pairs=join(RESULTSDIR,"bam","{sample}.pairs.gz"),
+        unsorted=temp(join(RESULTSDIR,"bam","{sample}.unsorted.bam")),
+        bam=join(RESULTSDIR,"bam","{sample}.final.bam")
+    params:
+        genome=config[genome]['chrom_sizes']
+    threads:
+        getthreads("generate_pairs")
+    envmodules:
+        TOOLS["pairtools"],
+        TOOLS["samtools"]
+    shell:
+        """
+        pairtools parse --min-mapq 40 --walks-policy 5unique --max-inter-align-gap 30 \
+        --nproc-in {threads} --nproc-out {threads} --chroms-path {params.genome} {input.sam} > {output.pairsam}
+
+        pairtools sort --nproc {threads} --tmpdir=/lscratch/$SLURM_JOB_ID {output.pairsam} > {output.sorted}
+
+        if [ -f {output.stats} ] ; then
+            rm {output.stats}
+        fi
+        pairtools dedup --nproc-in {threads} --nproc-out {threads} --mark-dups --output-stats {output.stats} \
+        --output {output.dedup} {output.sorted}
+
+        pairtools split --nproc-in {threads} --nproc-out {threads} --output-pairs {output.pairs} \
+        --output-sam {output.unsorted} {output.dedup}
+
+        samtools sort -@{threads} -T /lscratch/$SLURM_JOB_ID/temp.bam -o {output.bam} {output.unsorted}
+        samtools index {output.bam}
+        """
+
+rule library_qc:
+    """Summarize library quality using stats file"""
+    input:
+        stats=join(RESULTSDIR,"bam","{sample}.dedup_stats.txt")
+    output:
+        qc=join(RESULTSDIR,"qc","{sample}.qc.txt")
+    params:
+        script=join(MICROCDIR,"get_qc.py")
+    shell:
+        """
+        python3 {params.script} -p {input.stats} > {output.qc}
+        """
+
+rule library_complexity:
+    """Calculate library complexity (shallow sequencing experiments)"""
+    input:
+        bam=join(RESULTSDIR,"bam","{sample}.final.bam")
+    output:
+        preseq=join(RESULTSDIR,"qc","{sample}.preseq")
+    envmodules:
+        TOOLS["preseq"]
+    shell:
+        """
+        preseq lc_extrap -bam -pe -extrap 2.1e9 -step 1e8 -seg_len 1000000000 -output {output.preseq} {input.bam}
+        """
+
+rule contact_matrix_hic:
+    input:
+        pairs=join(RESULTSDIR,"bam","{sample}.pairs.gz")
+    output:
+        map=join(RESULTSDIR,"hic","{sample}.hic")
+    params:
+        genome=config[genome]['chrom_sizes']
+    threads:
+        getthreads("contact_matrix_hic")
+    envmodules:
+        TOOLS["juicer"]
+    shell:
+        """
+        juicer_tools pre --threads {threads} {input.pairs} {output.map} {params.genome}
+        """

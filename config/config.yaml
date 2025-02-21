@@ -1,0 +1,24 @@
+workdir:
+    WORKDIR
+scriptsdir:
+    PIPELINE_HOME/workflow/scripts/
+manifest:
+    WORKDIR/config/samples.tsv
+tools:
+    PIPELINE_HOME/resources/tools.yaml
+cluster:
+    PIPELINE_HOME/resources/cluster.yaml
+
+microcdir:
+    /data/khanlab3/gb_omics/software/Micro-C/
+
+# Reference genome
+genome: hg38
+
+hg38:
+    ref:
+        /fdb/genomebrowser/fasta/hg38.fa
+    chrom_sizes:
+        /fdb/genomebrowser/fasta/hg38.chrom.sizes
+    bwa_ref:
+        /fdb/bwa/indexes/hg38.fa
