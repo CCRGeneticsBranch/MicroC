@@ -11,6 +11,13 @@ __default__:
 
 align:
     threads: 16
+    mem: 16g
 
 generate_pairs:
     threads: 16
+    mem: 16g
+
+contact_matrix_hic:
+    threads: 4
+    mem: 24g
+    time: 00-01:00:00

@@ -33,7 +33,7 @@ getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUS
 genome = config['genome']
 
 # Rules
-localrules: library_qc
+localrules: library_qc, library_complexity
 
 rule all:
     input:
@@ -70,7 +70,8 @@ rule align:
     shell:
         """
         bwa mem -5SP -T0 -t{threads} -R "@RG\\tID:{params.rg}\\tSM:{params.rg}\\tLB:{params.rg}\\tPL:ILLUMINA\\tPU:none" \
-        {params.bwa_ref} {input.fastq_R1} {input.fastq_R2} -o {output.sam}
+        -o {output.sam} \
+        {params.bwa_ref} {input.fastq_R1} {input.fastq_R2}
         """
 
 rule generate_pairs:
@@ -81,6 +82,7 @@ rule generate_pairs:
     Sorts file
     Marks and removes PCR duplicates
     Splits into bam and pairs files, sort/index
+    Final pairs file includes only UU, UR/RU pairs (unique-unique or unique-rescued)
     """
     input:
         sam=join(RESULTSDIR,"bam","{sample}.sam")
@@ -158,5 +160,5 @@ rule contact_matrix_hic:
         TOOLS["juicer"]
     shell:
         """
-        juicer_tools pre --threads {threads} {input.pairs} {output.map} {params.genome}
+        juicer_tools -Xmx16g pre --threads {threads} {input.pairs} {output.map} {params.genome}
         """
