@@ -1,4 +1,8 @@
+
+
+
 # Micro-C pipeline, based on https://micro-c.readthedocs.io/en/latest/index.html
+
 
 # Import python libraries
 import os
@@ -6,11 +10,13 @@ from os.path import join
 import itertools
 import yaml
 import pandas as pd
+from snakemake.utils import expand
 
 # Set directories
 WORKDIR = config["workdir"]
 RESULTSDIR = join(WORKDIR,"results")
 MICROCDIR = config["microcdir"]
+SCRIPTSDIR = config["scriptsdir"]
 
 # Get list of samples
 manifest = pd.read_table(config["manifest"])
@@ -23,8 +29,12 @@ with open(config["tools"]) as f:
     TOOLS = yaml.safe_load(f)
 
 # Define resources per rule
-with open(config["cluster"]) as f:
-    CLUSTER = yaml.safe_load(f)
+if config["mode"] == "qc":
+    with open(config["cluster_qc"]) as f:
+        CLUSTER = yaml.safe_load(f)
+else:
+    with open(config["cluster"]) as f:
+        CLUSTER = yaml.safe_load(f)
 
 getthreads=lambda rname:int(CLUSTER[rname]["threads"]) if rname in CLUSTER and "threads" in CLUSTER[rname] else int(CLUSTER["__default__"]["threads"])
 getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUSTER[rname] else CLUSTER["__default__"]["mem"]
@@ -32,26 +42,39 @@ getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUS
 # Define genomes
 genome = config['genome']
 
+# Helper to build the full input list for rule all
+def get_all_inputs():
+    inputs = []
+    
+    # Stats file
+    inputs += list(expand(join(RESULTSDIR,"bam","{samples}.dedup_stats.txt"),samples=SAMPLES))
+    
+    # Final bam and pairs files
+    inputs += list(expand(join(RESULTSDIR,"bam","{samples}.pairs.gz"),samples=SAMPLES))
+    inputs += list(expand(join(RESULTSDIR,"bam","{samples}.final.bam"),samples=SAMPLES))
+    
+    # QC summary
+    inputs += list(expand(join(RESULTSDIR,"qc","{samples}.qc.txt"),samples=SAMPLES))
+    inputs += list(join(RESULTSDIR, "qc", "combined_qc.txt"))
+    
+    # Contact map
+    inputs += list(expand(join(RESULTSDIR,"hic","{samples}.hic"),samples=SAMPLES))
+
+    # QC-only:
+    if config["mode"] == "qc":
+        # Preseq
+        inputs += list(expand(join(RESULTSDIR,"qc","{samples}.preseq"),samples=SAMPLES))
+
+        # MultiQC
+        inputs += list(join(RESULTSDIR, "qc", "multiqc_report.html"))
+
+    return inputs
+
 # Rules
-localrules: library_qc, library_complexity
+localrules: library_qc, library_complexity, combine_qc, multiqc
 
 rule all:
-    input:
-        # Stats file
-        expand(join(RESULTSDIR,"bam","{samples}.dedup_stats.txt"),samples=SAMPLES),
-
-        # Final bam and pairs files
-        expand(join(RESULTSDIR,"bam","{samples}.pairs.gz"),samples=SAMPLES),
-        expand(join(RESULTSDIR,"bam","{samples}.final.bam"),samples=SAMPLES),
-
-        # QC summary
-        expand(join(RESULTSDIR,"qc","{samples}.qc.txt"),samples=SAMPLES),
-
-        # Preseq
-        expand(join(RESULTSDIR,"qc","{samples}.preseq"),samples=SAMPLES),
-
-        # Contact map
-        expand(join(RESULTSDIR,"hic","{samples}.hic"),samples=SAMPLES)
+    input: get_all_inputs
 
 rule align:
     """Align reads to reference genome"""
@@ -134,8 +157,21 @@ rule library_qc:
         python3 {params.script} -p {input.stats} > {output.qc}
         """
 
+rule combine_qc:
+    """Combine QC metrics across samples"""
+    input:
+        qc_files=expand(join(RESULTSDIR, "qc", "{sample}.qc.txt"), sample=SAMPLES)
+    output:
+        combined=join(RESULTSDIR, "qc", "combined_qc.txt")
+    params:
+        script=join(SCRIPTSDIR, "combine_qc.sh")
+    shell:
+        """
+        cd {RESULTSDIR}/qc && bash {params.script}
+        """
+
 rule library_complexity:
-    """Calculate library complexity (shallow sequencing experiments)"""
+    """Calculate library complexity for shallow sequencing experiments"""
     input:
         bam=join(RESULTSDIR,"bam","{sample}.final.bam")
     output:
@@ -145,6 +181,19 @@ rule library_complexity:
     shell:
         """
         preseq lc_extrap -bam -pe -extrap 2.1e9 -step 1e8 -seg_len 1000000000 -output {output.preseq} {input.bam}
+        """
+
+rule multiqc:
+    """Aggregate Preseq QC metrics across samples"""
+    input:
+        preseq=expand(join(RESULTSDIR, "qc", "{sample}.preseq"), sample=SAMPLES)
+    output:
+        report=join(RESULTSDIR, "qc", "multiqc_report.html")
+    envmodules:
+        TOOLS["multiqc"]
+    shell:
+        """
+        cd {RESULTSDIR}/qc && multiqc .
         """
 
 rule contact_matrix_hic:

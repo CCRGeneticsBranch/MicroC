@@ -8,9 +8,13 @@ tools:
     PIPELINE_HOME/resources/tools.yaml
 cluster:
     PIPELINE_HOME/resources/cluster.yaml
+cluster_qc:
+    PIPELINE_HOME/resources/cluster_qc.yaml
 
 microcdir:
     /data/khanlab3/gb_omics/software/Micro-C/
+
+mode: qc #qc, full
 
 # Reference genome
 genome: hg38
