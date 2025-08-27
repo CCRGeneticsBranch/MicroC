@@ -7,14 +7,13 @@ manifest:
 tools:
     PIPELINE_HOME/resources/tools.yaml
 cluster:
-    PIPELINE_HOME/resources/cluster.yaml
-cluster_qc:
-    PIPELINE_HOME/resources/cluster_qc.yaml
+    WORKDIR/config/cluster.yaml
 
 microcdir:
     /data/khanlab3/gb_omics/software/Micro-C/
 
-mode: qc #qc, full
+# Depth (shallow or deep)
+depth: shallow
 
 # Reference genome
 genome: hg38

@@ -56,7 +56,7 @@ function usage() {
   --> run MicroC pipeline
 
   USAGE:
-    bash ${SCRIPTNAME} -m/--runmode=<RUNMODE> -w/--workdir=<WORKDIR>
+    bash ${SCRIPTNAME} -m/--runmode=<RUNMODE> -w/--workdir=<WORKDIR> [-d/--depth=<DEPTH>]
   Required Arguments:
   1.  RUNMODE: [Type: String] Valid options:
       *) init : initialize workdir
@@ -67,6 +67,7 @@ function usage() {
       *) runlocal : run without submitting to sbatch
       *) testrun: run on cluster with included test dataset
   2.  WORKDIR: [Type: String]: Absolute or relative path to the output folder with write permissions.
+  3.  DEPTH: [Type: String]: (init only) Specify sequencing depth: 'shallow' or 'deep'. Default: 'shallow'.
   "
 }
 
@@ -87,7 +88,6 @@ cat <<< "
 }
 
 function init() {
-
   # This function initializes the workdir by:
   # 1. creating the working dir
   # 2. copying essential files like config.yaml and samples.tsv into the workdir
@@ -104,6 +104,16 @@ function init() {
       fbn=$(basename $f)
       sed -e "s/PIPELINE_HOME/${PIPELINE_HOME//\//\\/}/g" -e "s/WORKDIR/${WORKDIR//\//\\/}/g" ${PIPELINE_HOME}/$f > $WORKDIR/config/$fbn
     done
+
+    # copy correct cluster config based on DEPTH
+    if [ "$DEPTH" == "shallow" ]; then
+      cp ${PIPELINE_HOME}/resources/cluster_shallow.yaml $WORKDIR/config/cluster.yaml
+    else
+      cp ${PIPELINE_HOME}/resources/cluster.yaml $WORKDIR/config/cluster.yaml
+    fi
+
+    # update depth in config.yaml
+    sed -i "s/^depth:.*/depth: $DEPTH/" $WORKDIR/config/config.yaml
 
     # copy essential folders
     for f in $ESSENTIAL_FOLDERS;do
@@ -360,6 +370,7 @@ function run() {
   --use-envmodules \
   --latency-wait 120 \
   --configfile ${WORKDIR}/config/config.yaml \
+  --cluster-config ${WORKDIR}/config/cluster.yaml \
   --cores all \
   --stats ${WORKDIR}/snakemake.stats \
   2>&1|tee ${WORKDIR}/snakemake.log
@@ -374,8 +385,7 @@ function run() {
   elif [ "$1" == "slurm" ];then
   
     preruncleanup
-    # if QOS is other than "global" and is supplied in the cluster.json file then add " --qos={cluster.qos}" to the 
-    # snakemake command below
+    # Use the cluster.yaml in WORKDIR/config (set at init)
   cat > ${WORKDIR}/submit_script.sbatch << EOF
 #!/bin/bash
 #SBATCH --job-name="MicroC"
@@ -398,7 +408,7 @@ snakemake -s $SNAKEFILE \
 --printshellcmds \
 --latency-wait 120 \
 --configfile ${WORKDIR}/config/config.yaml \
---cluster-config ${PIPELINE_HOME}/resources/cluster.yaml \
+--cluster-config ${WORKDIR}/config/cluster.yaml \
 --cluster "sbatch --gres {cluster.gres} --cpus-per-task {cluster.threads} -p {cluster.partition} -t {cluster.time} --mem {cluster.mem} --job-name {cluster.name} --output {cluster.output} --error {cluster.error}" \
 -j 500 \
 --rerun-incomplete \
@@ -426,7 +436,7 @@ EOF
     --printshellcmds \
     --latency-wait 120 \
     --configfile ${WORKDIR}/config/config.yaml \
-    --cluster-config ${PIPELINE_HOME}/resources/cluster.yaml \
+    --cluster-config ${WORKDIR}/config/cluster.yaml \
     --cluster "sbatch --gres {cluster.gres} --cpus-per-task {cluster.threads} -p {cluster.partition} -t {cluster.time} --mem {cluster.mem} --job-name {cluster.name} --output {cluster.output} --error {cluster.error}" \
     -j 500 \
     --rerun-incomplete \
@@ -434,7 +444,6 @@ EOF
     --stats ${WORKDIR}/snakemake.stats
 
   fi
-
 }
 
 function reset() {
@@ -454,6 +463,7 @@ function main(){
 
   if [ $# -eq 0 ]; then usage && exit 1; fi
 
+  DEPTH="shallow" # default
   for i in "$@"; do
   case $i in
       -m=*|--runmode=*)
@@ -462,6 +472,9 @@ function main(){
       -w=*|--workdir=*)
         WORKDIR="${i#*=}"
       ;;
+      -d=*|--depth=*)
+        DEPTH="${i#*=}"
+      ;;
       *)
         err "Unknown argument!"    # unknown option
       ;;
@@ -469,6 +482,11 @@ function main(){
   done
   WORKDIR=$(readlink -f "$WORKDIR")
   echo "Working Dir: $WORKDIR"
+  if [ "$RUNMODE" == "init" ]; then
+    if [[ "$DEPTH" != "shallow" && "$DEPTH" != "deep" ]]; then
+      err "DEPTH must be 'shallow' or 'deep' (got '$DEPTH')"
+    fi
+  fi
 
   case $RUNMODE in
     init) init && exit 0;;
@@ -483,7 +501,6 @@ function main(){
     printbinds) printbinds && exit 0;;           # hidden option
     *) err "Unknown RUNMODE \"$RUNMODE\"";;
   esac
-
 }
 
 # call the main function

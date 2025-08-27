@@ -10,7 +10,6 @@ from os.path import join
 import itertools
 import yaml
 import pandas as pd
-from snakemake.utils import expand
 
 # Set directories
 WORKDIR = config["workdir"]
@@ -18,23 +17,21 @@ RESULTSDIR = join(WORKDIR,"results")
 MICROCDIR = config["microcdir"]
 SCRIPTSDIR = config["scriptsdir"]
 
-# Get list of samples
+# Get list of libraries/samples
 manifest = pd.read_table(config["manifest"])
-SAMPLES =  manifest['Sample'].unique()
-FASTQ_R1 = dict(zip(manifest['Sample'], manifest['R1']))
-FASTQ_R2 = dict(zip(manifest['Sample'], manifest['R2']))
+LIBRARIES =  manifest['Library'].unique()
+FASTQ_R1 = dict(zip(manifest['Library'], manifest['R1']))
+FASTQ_R2 = dict(zip(manifest['Library'], manifest['R2']))
+SAMPLES = manifest['Sample'].unique()
+LIBRARY_TO_SAMPLE = dict(zip(manifest['Library'], manifest['Sample']))
 
 # Define tools
 with open(config["tools"]) as f:
     TOOLS = yaml.safe_load(f)
 
 # Define resources per rule
-if config["mode"] == "qc":
-    with open(config["cluster_qc"]) as f:
-        CLUSTER = yaml.safe_load(f)
-else:
-    with open(config["cluster"]) as f:
-        CLUSTER = yaml.safe_load(f)
+with open(config["cluster"]) as f:
+    CLUSTER = yaml.safe_load(f)
 
 getthreads=lambda rname:int(CLUSTER[rname]["threads"]) if rname in CLUSTER and "threads" in CLUSTER[rname] else int(CLUSTER["__default__"]["threads"])
 getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUSTER[rname] else CLUSTER["__default__"]["mem"]
@@ -43,30 +40,33 @@ getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUS
 genome = config['genome']
 
 # Helper to build the full input list for rule all
-def get_all_inputs():
+def get_all_inputs(wildcards=None):
     inputs = []
     
     # Stats file
-    inputs += list(expand(join(RESULTSDIR,"bam","{samples}.dedup_stats.txt"),samples=SAMPLES))
+    inputs += list(expand(join(RESULTSDIR,"bam","{libraries}.dedup_stats.txt"),libraries=LIBRARIES))
     
     # Final bam and pairs files
-    inputs += list(expand(join(RESULTSDIR,"bam","{samples}.pairs.gz"),samples=SAMPLES))
-    inputs += list(expand(join(RESULTSDIR,"bam","{samples}.final.bam"),samples=SAMPLES))
+    inputs += list(expand(join(RESULTSDIR,"bam","{libraries}.pairs.gz"),libraries=LIBRARIES))
+    inputs += list(expand(join(RESULTSDIR,"bam","{libraries}.final.bam"),libraries=LIBRARIES))
     
     # QC summary
-    inputs += list(expand(join(RESULTSDIR,"qc","{samples}.qc.txt"),samples=SAMPLES))
-    inputs += list(join(RESULTSDIR, "qc", "combined_qc.txt"))
+    inputs += list(expand(join(RESULTSDIR,"qc","{libraries}.qc.txt"),libraries=LIBRARIES))
+    inputs += [join(RESULTSDIR, "qc", "combined_qc.txt")]
     
-    # Contact map
-    inputs += list(expand(join(RESULTSDIR,"hic","{samples}.hic"),samples=SAMPLES))
+    # Merged pairs file per sample
+    inputs += list(expand(join(RESULTSDIR,"merged_pairs","{sample}.pairs.gz"),sample=SAMPLES))
 
-    # QC-only:
-    if config["mode"] == "qc":
+    # Contact map
+    inputs += list(expand(join(RESULTSDIR,"hic","{sample}.hic"),sample=SAMPLES))
+
+    # Shallow-only:
+    if config["depth"] == "shallow":
         # Preseq
-        inputs += list(expand(join(RESULTSDIR,"qc","{samples}.preseq"),samples=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR,"qc","{libraries}.preseq"),libraries=LIBRARIES))
 
         # MultiQC
-        inputs += list(join(RESULTSDIR, "qc", "multiqc_report.html"))
+        inputs += [join(RESULTSDIR, "qc", "multiqc_report.html")]
 
     return inputs
 
@@ -79,13 +79,13 @@ rule all:
 rule align:
     """Align reads to reference genome"""
     input:
-        fastq_R1=lambda wildcards: f"{FASTQ_R1[wildcards.sample]}",
-        fastq_R2=lambda wildcards: f"{FASTQ_R2[wildcards.sample]}"
+        fastq_R1=lambda wildcards: f"{FASTQ_R1[wildcards.library]}",
+        fastq_R2=lambda wildcards: f"{FASTQ_R2[wildcards.library]}"
     output:
-        sam=temp(join(RESULTSDIR,"bam","{sample}.sam"))
+        sam=temp(join(RESULTSDIR,"bam","{library}.sam"))
     params:
         bwa_ref = config[genome]['bwa_ref'],
-        rg="{sample}"
+        rg="{library}"
     threads:
         getthreads("align")
     envmodules:
@@ -108,15 +108,15 @@ rule generate_pairs:
     Final pairs file includes only UU, UR/RU pairs (unique-unique or unique-rescued)
     """
     input:
-        sam=join(RESULTSDIR,"bam","{sample}.sam")
+        sam=join(RESULTSDIR,"bam","{library}.sam")
     output:
-        pairsam=temp(join(RESULTSDIR,"bam","{sample}.parsed.pairsam")),
-        sorted=temp(join(RESULTSDIR,"bam","{sample}.sorted.pairsam")),
-        dedup=temp(join(RESULTSDIR,"bam","{sample}.dedup.pairsam")),
-        stats=join(RESULTSDIR,"bam","{sample}.dedup_stats.txt"),
-        pairs=join(RESULTSDIR,"bam","{sample}.pairs.gz"),
-        unsorted=temp(join(RESULTSDIR,"bam","{sample}.unsorted.bam")),
-        bam=join(RESULTSDIR,"bam","{sample}.final.bam")
+        pairsam=temp(join(RESULTSDIR,"bam","{library}.parsed.pairsam")),
+        sorted=temp(join(RESULTSDIR,"bam","{library}.sorted.pairsam")),
+        dedup=temp(join(RESULTSDIR,"bam","{library}.dedup.pairsam")),
+        stats=join(RESULTSDIR,"bam","{library}.dedup_stats.txt"),
+        pairs=join(RESULTSDIR,"bam","{library}.pairs.gz"),
+        unsorted=temp(join(RESULTSDIR,"bam","{library}.unsorted.bam")),
+        bam=join(RESULTSDIR,"bam","{library}.final.bam")
     params:
         genome=config[genome]['chrom_sizes']
     threads:
@@ -147,9 +147,9 @@ rule generate_pairs:
 rule library_qc:
     """Summarize library quality using stats file"""
     input:
-        stats=join(RESULTSDIR,"bam","{sample}.dedup_stats.txt")
+        stats=join(RESULTSDIR,"bam","{library}.dedup_stats.txt")
     output:
-        qc=join(RESULTSDIR,"qc","{sample}.qc.txt")
+        qc=join(RESULTSDIR,"qc","{library}.qc.txt")
     params:
         script=join(MICROCDIR,"get_qc.py")
     shell:
@@ -158,9 +158,9 @@ rule library_qc:
         """
 
 rule combine_qc:
-    """Combine QC metrics across samples"""
+    """Combine QC metrics across libraries"""
     input:
-        qc_files=expand(join(RESULTSDIR, "qc", "{sample}.qc.txt"), sample=SAMPLES)
+        qc_files=expand(join(RESULTSDIR, "qc", "{library}.qc.txt"), library=LIBRARIES)
     output:
         combined=join(RESULTSDIR, "qc", "combined_qc.txt")
     params:
@@ -173,9 +173,9 @@ rule combine_qc:
 rule library_complexity:
     """Calculate library complexity for shallow sequencing experiments"""
     input:
-        bam=join(RESULTSDIR,"bam","{sample}.final.bam")
+        bam=join(RESULTSDIR,"bam","{library}.final.bam")
     output:
-        preseq=join(RESULTSDIR,"qc","{sample}.preseq")
+        preseq=join(RESULTSDIR,"qc","{library}.preseq")
     envmodules:
         TOOLS["preseq"]
     shell:
@@ -184,9 +184,9 @@ rule library_complexity:
         """
 
 rule multiqc:
-    """Aggregate Preseq QC metrics across samples"""
+    """Aggregate Preseq QC metrics across libraries"""
     input:
-        preseq=expand(join(RESULTSDIR, "qc", "{sample}.preseq"), sample=SAMPLES)
+        preseq=expand(join(RESULTSDIR, "qc", "{library}.preseq"), library=LIBRARIES)
     output:
         report=join(RESULTSDIR, "qc", "multiqc_report.html")
     envmodules:
@@ -196,9 +196,28 @@ rule multiqc:
         cd {RESULTSDIR}/qc && multiqc .
         """
 
+rule merge_pairs:
+    """Combine pairs files from multiple libraries per sample"""
+    input:
+        pairs=lambda wildcards: [join(RESULTSDIR, "bam", f"{library}.pairs.gz") for library in LIBRARIES if LIBRARY_TO_SAMPLE[library] == wildcards.sample]
+    output:
+        merged_pairs=join(RESULTSDIR,"merged_pairs","{sample}.pairs.gz")
+    threads:
+        getthreads("merge_pairs")
+    resources:
+        mem = getmemg("merge_pairs")
+    envmodules:
+        TOOLS["pairtools"]
+    shell:
+        """
+        pairtools merge -o {output.merged_pairs} \
+            --tmpdir /lscratch/$SLURM_JOB_ID --memory {resources.mem} --nproc {threads} --nproc-in {threads} --nproc-out {threads} \
+                {input.pairs} 
+        """
+
 rule contact_matrix_hic:
     input:
-        pairs=join(RESULTSDIR,"bam","{sample}.pairs.gz")
+        pairs=join(RESULTSDIR,"merged_pairs","{sample}.pairs.gz")
     output:
         map=join(RESULTSDIR,"hic","{sample}.hic")
     params:

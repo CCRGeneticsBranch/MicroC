@@ -18,6 +18,11 @@ generate_pairs:
     mem: 4g
     time: 00-8:00:00
 
+merge_pairs:
+    threads: 32
+    mem: 120g
+    time: 00-8:00:00
+
 contact_matrix_hic:
     threads: 8
     mem: 48g
