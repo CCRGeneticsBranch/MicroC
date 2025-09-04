@@ -228,5 +228,5 @@ rule contact_matrix_hic:
         TOOLS["juicer"]
     shell:
         """
-        juicer_tools -Xmx16g pre --threads {threads} {input.pairs} {output.map} {params.genome}
+        juicer_tools -Xmx96g pre --threads {threads} {input.pairs} {output.map} {params.genome}
         """

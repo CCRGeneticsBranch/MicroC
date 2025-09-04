@@ -3,7 +3,7 @@ __default__:
     gres: lscratch:500
     mem: 4g
     threads: 2
-    time: 00-04:00:00
+    time: 00-08:00:00
     partition: norm
     name: "{rule}.{wildcards}"
     output: "logs/{rule}.${{SLURM_JOBID}}.%j.{wildcards}.out"
@@ -16,14 +16,14 @@ align:
 generate_pairs:
     threads: 4
     mem: 4g
-    time: 00-8:00:00
+    time: 1-00:00:00
 
 merge_pairs:
-    threads: 32
+    threads: 8
     mem: 120g
-    time: 00-8:00:00
+    time: 00-00:30:00
 
 contact_matrix_hic:
-    threads: 8
-    mem: 48g
-    time: 00-8:00:00
+    threads: 16
+    mem: 120g
+    time: 1-00:00:00
