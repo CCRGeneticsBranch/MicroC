@@ -16,3 +16,5 @@ If successful, launch the pipeline with:
 ```
   bash [path to repo]/MicroC/run_microc --runmode=run --workdir=[directory]
 ```
+
+Thank you to Hsien-Chao Chou for sharing library merging and topology scripts

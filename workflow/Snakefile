@@ -1,6 +1,3 @@
-
-
-
 # Micro-C pipeline, based on https://micro-c.readthedocs.io/en/latest/index.html
 
 
@@ -42,35 +39,63 @@ genome = config['genome']
 # Helper to build the full input list for rule all
 def get_all_inputs(wildcards=None):
     inputs = []
-    
+
     # Stats file
-    inputs += list(expand(join(RESULTSDIR,"bam","{libraries}.dedup_stats.txt"),libraries=LIBRARIES))
-    
+    inputs += list(expand(join(RESULTSDIR, "bam", "{libraries}.dedup_stats.txt"), libraries=LIBRARIES))
+
     # Final bam and pairs files
-    inputs += list(expand(join(RESULTSDIR,"bam","{libraries}.pairs.gz"),libraries=LIBRARIES))
-    inputs += list(expand(join(RESULTSDIR,"bam","{libraries}.final.bam"),libraries=LIBRARIES))
-    
+    inputs += list(expand(join(RESULTSDIR, "bam", "{libraries}.pairs.gz"), libraries=LIBRARIES))
+    inputs += list(expand(join(RESULTSDIR, "bam", "{libraries}.final.bam"), libraries=LIBRARIES))
+
     # QC summary
-    inputs += list(expand(join(RESULTSDIR,"qc","{libraries}.qc.txt"),libraries=LIBRARIES))
+    inputs += list(expand(join(RESULTSDIR, "qc", "{libraries}.qc.txt"), libraries=LIBRARIES))
     inputs += [join(RESULTSDIR, "qc", "combined_qc.txt")]
-    
+
     # Merged pairs file per sample
-    inputs += list(expand(join(RESULTSDIR,"merged_pairs","{sample}.pairs.gz"),sample=SAMPLES))
+    inputs += list(expand(join(RESULTSDIR, "merged_pairs", "{sample}.pairs.gz"), sample=SAMPLES))
 
     # Contact map
-    inputs += list(expand(join(RESULTSDIR,"hic","{sample}.hic"),sample=SAMPLES))
+    inputs += list(expand(join(RESULTSDIR, "hic", "{sample}.hic"), sample=SAMPLES))
 
     # Shallow-only:
     if config["depth"] == "shallow":
         # Preseq
-        inputs += list(expand(join(RESULTSDIR,"qc","{libraries}.preseq"),libraries=LIBRARIES))
+        inputs += list(expand(join(RESULTSDIR, "qc", "{libraries}.preseq"), libraries=LIBRARIES))
 
         # MultiQC
         inputs += [join(RESULTSDIR, "qc", "multiqc_report.html")]
 
+    # Deep only:
+    if config["depth"] == "deep":
+        # Convert hic to h5 at 10kb
+        inputs += list(expand(join(RESULTSDIR, "h5", "{sample}.10kb.h5"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "h5", "{sample}.10kb.cool"), sample=SAMPLES))
+
+        # AB compartments (FAN-C)
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "{sample}_10kb.ab"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "{sample}_10kb_eigen.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "{sample}_10kb_AB.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "{sample}_10kb_profile.png"), sample=SAMPLES))
+
+        # TADs (Juicer Arrowhead)
+        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "{sample}.10kb_juicer_tads.txt"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "{sample}.5kb_juicer_tads.txt"), sample=SAMPLES))
+
+        # TADs (HiCExplorer)
+        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "{sample}.10kb_tad_score.bm"), sample=SAMPLES))
+
+        # Loops (Mustache)
+        inputs += list(expand(join(RESULTSDIR, "topology", "loops", "{sample}_10kb_loops.tsv"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "loops", "{sample}_5kb_loops.tsv"), sample=SAMPLES))
+
+        # Loops (HiCExplorer)
+        inputs += list(expand(join(RESULTSDIR, "topology", "loops", "{sample}.10kb.bedpe"), sample=SAMPLES))
+
     return inputs
 
 # Rules
+include: "rules/topology.smk"
+
 localrules: library_qc, library_complexity, combine_qc, multiqc
 
 rule all:
@@ -216,6 +241,7 @@ rule merge_pairs:
         """
 
 rule contact_matrix_hic:
+    """Generate .hic contact map from pairs file (resolutions 2.5M, 1M, 500K, 250K, 100K, 50K, 25K, 10K, and 5K)"""
     input:
         pairs=join(RESULTSDIR,"merged_pairs","{sample}.pairs.gz")
     output:

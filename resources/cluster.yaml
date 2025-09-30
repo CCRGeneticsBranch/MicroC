@@ -27,3 +27,31 @@ contact_matrix_hic:
     threads: 16
     mem: 120g
     time: 1-00:00:00
+
+convert_hic_h5:
+    mem: 36g
+
+call_compartment_fanc:
+    mem: 36g            
+    
+call_tads_arrowhead:
+    mem: 96g
+    threads: 16
+    
+call_tads_hic:
+    threads: 24
+    mem: 96g
+    time: 2-00:00:00
+
+call_loops_mustache:
+    threads: 48
+
+call_loops_hic:
+    threads: 32
+    mem: 120g
+    time: 1-00:00:00
+
+call_diff_tads:
+    threads: 12
+    mem: 96g
+    time: 1-00:00:00
