@@ -20,8 +20,8 @@ genome: hg38
 
 hg38:
     ref:
-        /fdb/genomebrowser/fasta/hg38.fa
+        /data/khanlab3/gb_omics/resources/genomes/hg38/hg38_main.fa
     chrom_sizes:
-        /fdb/genomebrowser/fasta/hg38.chrom.sizes
+        /data/khanlab3/gb_omics/resources/genomes/hg38/hg38_main.genome
     bwa_ref:
-        /fdb/bwa/indexes/hg38.fa
+        /data/khanlab3/gb_omics/resources/genomes/hg38/hg38_main.fa
