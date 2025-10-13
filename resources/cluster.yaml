@@ -9,6 +9,7 @@ __default__:
     output: "logs/{rule}.${{SLURM_JOBID}}.%j.{wildcards}.out"
     error: "logs/{rule}.${{SLURM_JOBID}}.%j.{wildcards}.err"
 
+# Preprocessing
 align:
     threads: 32
     mem: 24g
@@ -21,37 +22,52 @@ generate_pairs:
 merge_pairs:
     threads: 8
     mem: 120g
-    time: 00-00:30:00
+    time: 30:00
 
 contact_matrix_hic:
     threads: 16
-    mem: 120g
-    time: 1-00:00:00
+    mem: 96g
 
+contact_matrix_cooler:
+    threads: 32
+    mem: 48g
+
+# Topology
 convert_hic_h5:
-    mem: 36g
+    time: 1:00:00
 
 call_compartment_fanc:
-    mem: 36g            
+    mem: 8g         
+    time: 1:00:00   
     
 call_tads_arrowhead:
     mem: 96g
     threads: 16
+    time: 1:00:00
     
 call_tads_hic:
     threads: 24
-    mem: 96g
-    time: 2-00:00:00
+    mem: 48g
+    time: 1:00:00
 
 call_loops_mustache:
-    threads: 48
+    threads: 24
+    mem: 24g
+    time: 1:00:00
 
 call_loops_hic:
-    threads: 32
+    threads: 48
     mem: 120g
     time: 1-00:00:00
 
+# Differential loops
 call_diff_tads:
     threads: 12
     mem: 96g
     time: 1-00:00:00
+
+# SVs
+eaglec:
+    mem: 24g
+    threads: 4
+    time: 2-00:00:00

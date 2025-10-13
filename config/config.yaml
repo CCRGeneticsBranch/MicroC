@@ -11,6 +11,8 @@ cluster:
 
 microcdir:
     /data/khanlab3/gb_omics/software/Micro-C/
+pairixdir:
+    /data/khanlab3/gb_omics/software/pairix/bin/
 
 # Depth (shallow or deep)
 depth: shallow

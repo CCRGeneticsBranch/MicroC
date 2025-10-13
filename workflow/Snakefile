@@ -12,6 +12,7 @@ import pandas as pd
 WORKDIR = config["workdir"]
 RESULTSDIR = join(WORKDIR,"results")
 MICROCDIR = config["microcdir"]
+PAIRIXDIR = config["pairixdir"]
 SCRIPTSDIR = config["scriptsdir"]
 
 # Get list of libraries/samples
@@ -54,8 +55,10 @@ def get_all_inputs(wildcards=None):
     # Merged pairs file per sample
     inputs += list(expand(join(RESULTSDIR, "merged_pairs", "{sample}.pairs.gz"), sample=SAMPLES))
 
-    # Contact map
+    # Contact maps
     inputs += list(expand(join(RESULTSDIR, "hic", "{sample}.hic"), sample=SAMPLES))
+    inputs += list(expand(join(RESULTSDIR, "cool", "{sample}.1kb.cool"), sample=SAMPLES))
+    inputs += list(expand(join(RESULTSDIR, "cool", "{sample}.1kb.mcool"), sample=SAMPLES))
 
     # Shallow-only:
     if config["depth"] == "shallow":
@@ -67,34 +70,32 @@ def get_all_inputs(wildcards=None):
 
     # Deep only:
     if config["depth"] == "deep":
-        # Convert hic to h5 at 10kb
-        inputs += list(expand(join(RESULTSDIR, "h5", "{sample}.10kb.h5"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "h5", "{sample}.10kb.cool"), sample=SAMPLES))
-
         # AB compartments (FAN-C)
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "{sample}_10kb.ab"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "{sample}_10kb_eigen.bed"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "{sample}_10kb_AB.bed"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "{sample}_10kb_profile.png"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb.ab"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_eigen.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_AB.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_profile.png"), sample=SAMPLES))
 
         # TADs (Juicer Arrowhead)
-        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "{sample}.10kb_juicer_tads.txt"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "{sample}.5kb_juicer_tads.txt"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.10kb_juicer_tads"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.5kb_juicer_tads"), sample=SAMPLES))
 
         # TADs (HiCExplorer)
-        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "{sample}.10kb_tad_score.bm"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "h5", "{sample}.10kb.h5"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "hicexplorer", "{sample}.10kb_tad_score.bm"), sample=SAMPLES))
 
         # Loops (Mustache)
-        inputs += list(expand(join(RESULTSDIR, "topology", "loops", "{sample}_10kb_loops.tsv"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "loops", "{sample}_5kb_loops.tsv"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "loops", "mustache", "{sample}_10kb_loops.tsv"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "loops", "mustache", "{sample}_5kb_loops.tsv"), sample=SAMPLES))
 
-        # Loops (HiCExplorer)
-        inputs += list(expand(join(RESULTSDIR, "topology", "loops", "{sample}.10kb.bedpe"), sample=SAMPLES))
+        # Structural Variants (EagleC)
+        inputs += list(expand(join(RESULTSDIR, "topology", "sv", "eaglec", "{sample}.CNN_SVs.5K_combined.txt"), sample=SAMPLES))
 
     return inputs
 
 # Rules
 include: "rules/topology.smk"
+include: "rules/variants.smk"
 
 localrules: library_qc, library_complexity, combine_qc, multiqc
 
@@ -255,4 +256,23 @@ rule contact_matrix_hic:
     shell:
         """
         juicer_tools -Xmx96g pre --threads {threads} {input.pairs} {output.map} {params.genome}
+        """
+
+rule contact_matrix_cooler:
+    """Generate .cool contact map from pairs file"""
+    input:
+        pairs = join(RESULTSDIR, "merged_pairs", "{sample}.pairs.gz")
+    output:
+        cool = join(RESULTSDIR, "cool", "{sample}.1kb.cool"),
+        mcool = join(RESULTSDIR, "cool", "{sample}.1kb.mcool")
+    params:
+        pairix = join(PAIRIXDIR,"pairix"),
+        chromsizes = config[genome]['chrom_sizes']
+    threads:
+        getthreads("contact_matrix_cooler")
+    shell:
+        """
+        {params.pairix} -f {input.pairs}
+        cooler cload pairix -p {threads} {params.chromsizes}:1000 {input.pairs} {output.cool}
+        cooler zoomify --balance -r 5000N -p {threads} {output.cool}
         """
