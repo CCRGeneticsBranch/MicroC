@@ -71,12 +71,13 @@ def get_all_inputs(wildcards=None):
     # Deep only:
     if config["depth"] == "deep":
         # AB compartments (FAN-C)
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb.ab"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_eigen.bed"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_AB.bed"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_profile.png"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb.ab"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_eigen.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_AB.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_profile.png"), sample=SAMPLES))
 
         # TADs (Juicer Arrowhead)
+        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.25kb_juicer_tads"), sample=SAMPLES))
         inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.10kb_juicer_tads"), sample=SAMPLES))
         inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.5kb_juicer_tads"), sample=SAMPLES))
 

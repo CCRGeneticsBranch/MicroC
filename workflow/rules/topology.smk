@@ -28,13 +28,13 @@ rule call_compartment_fanc:
     input:
         hic = join(RESULTSDIR,"hic","{sample}.hic")
     output:
-        ab = join(RESULTSDIR,"topology","compartment","fanc","{sample}_1Mb.ab"),
-        eigen = join(RESULTSDIR,"topology","compartment","fanc","{sample}_1Mb_eigen.bed"),
-        domain = join(RESULTSDIR,"topology","compartment","fanc","{sample}_1Mb_AB.bed"),
-        profile = join(RESULTSDIR,"topology","compartment","fanc","{sample}_1Mb_profile.png")
+        ab = join(RESULTSDIR,"topology","compartment","fanc","{sample}_100kb.ab"),
+        eigen = join(RESULTSDIR,"topology","compartment","fanc","{sample}_100kb_eigen.bed"),
+        domain = join(RESULTSDIR,"topology","compartment","fanc","{sample}_100kb_AB.bed"),
+        profile = join(RESULTSDIR,"topology","compartment","fanc","{sample}_100kb_profile.png")
     params:
         ref = config[genome]['ref'],
-        res = "1Mb"
+        res = "100kb"
     envmodules:
         TOOLS["fanc"]
     shell:
@@ -50,6 +50,7 @@ rule call_tads_arrowhead:
     input:
         hic = join(RESULTSDIR, "hic", "{sample}.hic")
     output:
+        tads_25kb = directory(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.25kb_juicer_tads")),
         tads_10kb = directory(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.10kb_juicer_tads")),
         tads_5kb = directory(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.5kb_juicer_tads"))
     threads: 
@@ -58,6 +59,7 @@ rule call_tads_arrowhead:
         TOOLS["juicer"]
     shell:
         """
+        juicer_tools -Xmx96g arrowhead --threads {threads} -k KR -r 25000 {input.hic} {output.tads_25kb}
         juicer_tools -Xmx96g arrowhead --threads {threads} -k KR -r 10000 {input.hic} {output.tads_10kb}
         juicer_tools -Xmx96g arrowhead --threads {threads} -k KR -r 5000 {input.hic} {output.tads_5kb}
         """
