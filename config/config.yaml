@@ -17,6 +17,9 @@ pairixdir:
 # Depth (shallow or deep)
 depth: shallow
 
+# Ploidy
+ploidy: 2
+
 # Reference genome
 genome: hg38
 

@@ -70,19 +70,20 @@ def get_all_inputs(wildcards=None):
 
     # Deep only:
     if config["depth"] == "deep":
+        # Convert cool to h5 at 10kb
+        inputs += list(expand(join(RESULTSDIR, "h5", "{sample}.10kb.h5"), sample=SAMPLES))
+
         # AB compartments (FAN-C)
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb.ab"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_eigen.bed"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_AB.bed"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_profile.png"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb.ab"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_eigen.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_AB.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_profile.png"), sample=SAMPLES))
 
         # TADs (Juicer Arrowhead)
-        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.25kb_juicer_tads"), sample=SAMPLES))
         inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.10kb_juicer_tads"), sample=SAMPLES))
         inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.5kb_juicer_tads"), sample=SAMPLES))
 
         # TADs (HiCExplorer)
-        inputs += list(expand(join(RESULTSDIR, "h5", "{sample}.10kb.h5"), sample=SAMPLES))
         inputs += list(expand(join(RESULTSDIR, "topology", "tads", "hicexplorer", "{sample}.10kb_tad_score.bm"), sample=SAMPLES))
 
         # Loops (Mustache)
@@ -91,6 +92,15 @@ def get_all_inputs(wildcards=None):
 
         # Structural Variants (EagleC)
         inputs += list(expand(join(RESULTSDIR, "topology", "sv", "eaglec", "{sample}.CNN_SVs.5K_combined.txt"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology","sv","eaglec","{sample}.CNN_SVs.5K_combined.reformat.txt"), sample=SAMPLES))
+
+        # CNVs (Neoloopfinder)
+        inputs += list(expand(join(RESULTSDIR, "topology", "cnv", "{sample}_{resolution}.CNV-seg.bedGraph"), sample=SAMPLES, resolution=["25000"]))
+
+        # Enhancer hijacking
+        inputs += list(expand(join(RESULTSDIR, "topology","sv", "neoloopfinder","{sample}.assemblies.txt"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology","sv", "neoloopfinder","{sample}.neo-loops.txt"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology","sv", "neoloopfinder","{sample}.neo-tads.txt"), sample=SAMPLES))
 
     return inputs
 
@@ -98,7 +108,7 @@ def get_all_inputs(wildcards=None):
 include: "rules/topology.smk"
 include: "rules/variants.smk"
 
-localrules: library_qc, library_complexity, combine_qc, multiqc
+localrules: library_qc, library_complexity, combine_qc, multiqc, reformat_eaglec
 
 rule all:
     input: get_all_inputs

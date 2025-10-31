@@ -71,3 +71,19 @@ eaglec:
     mem: 24g
     threads: 4
     time: 2-00:00:00
+
+call_cnv_neoloop:
+    time: 1:00:00
+
+assemble_sv:
+    threads: 8
+    mem: 96g
+    time: 1:00:00
+
+call_neoloop:
+    threads: 8
+    mem: 24g
+    time: 1:00:00
+
+call_neotad:
+    time: 1:00:00
