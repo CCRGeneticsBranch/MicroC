@@ -43,6 +43,25 @@ rule call_compartment_fanc:
         {input.hic}@{params.res} {output.ab}
         """
 
+rule plot_compartment:
+    """Plot AB correlation matrix and eigenvector for each chromosome"""
+    input:
+        ab = join(RESULTSDIR,"topology","compartment","fanc","{sample}_100kb.ab"),
+        eigen = join(RESULTSDIR,"topology","compartment","fanc","{sample}_100kb_eigen.bed")
+    output:
+        plot = join(RESULTSDIR,"topology","compartment","fanc","plots","{sample}_{chr}.png")
+    params:
+        chr = "{chr}"
+    envmodules:
+        TOOLS["fanc"]
+    shell:
+        """
+        fancplot -o {output.plot} {params.chr} \
+            -p square {input.ab} \
+            -vmin -0.75 -vmax 0.75 -c RdBu_r \
+            -p line {input.eigen}
+        """
+
 # Topologically Associated Domains
 
 rule call_tads_arrowhead:

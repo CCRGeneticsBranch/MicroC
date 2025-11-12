@@ -36,6 +36,9 @@ getmemg=lambda rname:CLUSTER[rname]["mem"] if rname in CLUSTER and "mem" in CLUS
 
 # Define genomes
 genome = config['genome']
+chromosomes = ["chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", 
+               "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", 
+               "chr20", "chr21", "chr22", "chrX", "chrY", "chrM"]
 
 # Helper to build the full input list for rule all
 def get_all_inputs(wildcards=None):
@@ -70,16 +73,18 @@ def get_all_inputs(wildcards=None):
 
     # Deep only:
     if config["depth"] == "deep":
-        # Convert cool to h5 at 10kb
+        # Convert cool to h5
         inputs += list(expand(join(RESULTSDIR, "h5", "{sample}.10kb.h5"), sample=SAMPLES))
 
         # AB compartments (FAN-C)
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb.ab"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_eigen.bed"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_AB.bed"), sample=SAMPLES))
-        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_1Mb_profile.png"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb.ab"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_eigen.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_AB.bed"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "{sample}_100kb_profile.png"), sample=SAMPLES))
+        inputs += list(expand(join(RESULTSDIR, "topology", "compartment", "fanc", "plots","{sample}_{chr}.png"), sample=SAMPLES, chr=chromosomes))
 
         # TADs (Juicer Arrowhead)
+        inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.25kb_juicer_tads"), sample=SAMPLES))
         inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.10kb_juicer_tads"), sample=SAMPLES))
         inputs += list(expand(join(RESULTSDIR, "topology", "tads", "arrowhead", "{sample}.5kb_juicer_tads"), sample=SAMPLES))
 
@@ -108,7 +113,7 @@ def get_all_inputs(wildcards=None):
 include: "rules/topology.smk"
 include: "rules/variants.smk"
 
-localrules: library_qc, library_complexity, combine_qc, multiqc, reformat_eaglec
+localrules: library_qc, library_complexity, combine_qc, multiqc, reformat_eaglec, plot_compartment
 
 rule all:
     input: get_all_inputs
