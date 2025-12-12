@@ -63,6 +63,9 @@ def get_all_inputs(wildcards=None):
     inputs += list(expand(join(RESULTSDIR, "cool", "{sample}.1kb.cool"), sample=SAMPLES))
     inputs += list(expand(join(RESULTSDIR, "cool", "{sample}.1kb.mcool"), sample=SAMPLES))
 
+    # Merged bam per sample
+    inputs += list(expand(join(RESULTSDIR, "bam", "{sample}.combined.bam"), sample=SAMPLES))
+
     # Shallow-only:
     if config["depth"] == "shallow":
         # Preseq
@@ -94,6 +97,9 @@ def get_all_inputs(wildcards=None):
         # Loops (Mustache)
         inputs += list(expand(join(RESULTSDIR, "topology", "loops", "mustache", "{sample}_10kb_loops.tsv"), sample=SAMPLES))
         inputs += list(expand(join(RESULTSDIR, "topology", "loops", "mustache", "{sample}_5kb_loops.tsv"), sample=SAMPLES))
+
+        # Structural Variants (HiC-Breakfinder)
+        inputs += list(expand(join(RESULTSDIR, "topology", "sv", "hic_breakfinder", "{sample}.breaks.txt"), sample=SAMPLES))
 
         # Structural Variants (EagleC)
         inputs += list(expand(join(RESULTSDIR, "topology", "sv", "eaglec", "{sample}.CNN_SVs.5K_combined.txt"), sample=SAMPLES))
@@ -291,4 +297,20 @@ rule contact_matrix_cooler:
         {params.pairix} -f {input.pairs}
         cooler cload pairix -p {threads} {params.chromsizes}:1000 {input.pairs} {output.cool}
         cooler zoomify --balance -r 5000N -p {threads} {output.cool}
+        """
+
+rule combine_bam:
+    """Combine final bams from multiple libraries per sample"""
+    input:
+        bams=lambda wildcards: [join(RESULTSDIR, "bam", f"{library}.final.bam") for library in LIBRARIES if LIBRARY_TO_SAMPLE[library] == wildcards.sample]
+    output:
+        combined_bam=join(RESULTSDIR,"bam","{sample}.combined.bam")
+    threads:
+        getthreads("combine_bam")
+    envmodules:
+        TOOLS["samtools"]
+    shell:
+        """
+        samtools merge -@{threads} {output.combined_bam} {input.bams}
+        samtools index {output.combined_bam}
         """

@@ -1,20 +1,22 @@
 # Structural Variants
 rule hic_breakfinder:
-    """Detects structural variants using hic_breakfinder (https://github.com/dixonlab/hic_breakfinder) - currently not available on Biowulf"""
+    """Detects structural variants using hic_breakfinder (https://github.com/dixonlab/hic_breakfinder)"""
     input:
-        bam = "{sample}.bam",
-        exp_file_inter = "inter_expect_1Mb.hg38.txt",
-        exp_file_intra = "intra_expect_100kb.hg38.txt"
+        bam = join(RESULTSDIR,"bam","{sample}.combined.bam"),
+        exp_file_inter = config[genome]['exp_file_inter'],
+        exp_file_intra = config[genome]['exp_file_intra']
     output:
-        name = "hic_breakfinder/{sample}"
-    threads:
-        1
+        breaks = join(RESULTSDIR, "topology", "sv", "hic_breakfinder", "{sample}.breaks.txt")
+    params:
+        name = join(RESULTSDIR, "topology","sv","hic_breakfinder","{sample}")
+    envmodules:
+        TOOLS["hic_breakfinder"]
     shell:
         """
         hic_breakfinder --bam-file {input.bam} \
         --exp-file-inter {input.exp_file_inter} \
         --exp-file-intra {input.exp_file_intra} \
-        --name {output.name} --min-1kb
+        --name {params.name}
         """
 
 rule eaglec:
@@ -31,6 +33,28 @@ rule eaglec:
         """
         predictSV --hic-5k {input.mcool}::/resolutions/5000 --hic-10k {input.mcool}::/resolutions/10000 --hic-50k {input.mcool}::/resolutions/50000 \
         -O {params.sv} -g hg38 --balance-type ICE
+        """
+
+rule draw_circos:
+    """Generate a circos plot for all SVs"""
+    input:
+        sv = join(RESULTSDIR, "topology", "sv", "eaglec", "{sample}.CNN_SVs.5K_combined.reformat.txt")
+    output:
+        circos_plot = join(RESULTSDIR, "topology", "sv", "circos", "{sample}_SV_circos.png")
+    params:
+        circos_config = join(SCRIPTSDIR, "circos.conf"),
+        circos_data = join(RESULTSDIR, "topology", "sv", "circos", "{sample}_circos_data.txt")
+    threads:
+        getthreads("draw_circos")
+    envmodules:
+        TOOLS["circos"]
+    shell:
+        """
+        # Prepare data for circos
+        python3 prepare_circos_data.py {input.sv} {params.circos_data}
+
+        # Generate circos plot
+        circos -conf {params.circos_config} -outputfile {output.circos_plot}
         """
 
 rule call_cnv_neoloop:

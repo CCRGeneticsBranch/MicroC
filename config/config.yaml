@@ -30,3 +30,7 @@ hg38:
         /data/khanlab3/gb_omics/resources/genomes/hg38/hg38_main.genome
     bwa_ref:
         /data/khanlab3/gb_omics/resources/genomes/hg38/hg38_main.fa
+    exp_file_inter:
+        /data/khanlab3/gb_omics/resources/hic/hic_breakfinder/inter_expect_1Mb.hg38.txt
+    exp_file_intra:
+        /data/khanlab3/gb_omics/resources/hic/hic_breakfinder/intra_expect_100kb.hg38.txt

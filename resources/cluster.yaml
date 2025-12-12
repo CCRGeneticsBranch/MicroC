@@ -32,6 +32,9 @@ contact_matrix_cooler:
     threads: 32
     mem: 48g
 
+combine_bam:
+    threads: 16
+
 # Topology
 convert_hic_h5:
     time: 1:00:00
@@ -67,6 +70,10 @@ call_diff_tads:
     time: 1-00:00:00
 
 # SVs
+hic_breakfinder:
+    mem: 128g
+    time: 1-00:00:00
+    
 eaglec:
     mem: 24g
     threads: 4
