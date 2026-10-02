@@ -1,7 +1,5 @@
 workdir:
     WORKDIR
-scriptsdir:
-    PIPELINE_HOME/workflow/scripts/
 manifest:
     WORKDIR/config/samples.tsv
 tools:
