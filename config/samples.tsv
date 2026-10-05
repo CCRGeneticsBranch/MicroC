@@ -1,5 +1,3 @@
 Library	Sample	R1	R2
-RH4_5th_240905	RH4	/data/khanlab/projects/DATA/Sample_RH4_5th_240905_HiC1_AAGCTFGM5/Sample_RH4_5th_240905_HiC1_AAGCTFGM5_R1.fastq.gz	/data/khanlab/projects/DATA/Sample_RH4_5th_240905_HiC1_AAGCTFGM5/Sample_RH4_5th_240905_HiC1_AAGCTFGM5_R2.fastq.gz
-RH4_6th_240912	RH4	/data/khanlab/projects/DATA/Sample_RH4_6th_240912_HiC2_AAGCTFGM5/Sample_RH4_6th_240912_HiC2_AAGCTFGM5_R1.fastq.gz	/data/khanlab/projects/DATA/Sample_RH4_6th_240912_HiC2_AAGCTFGM5/Sample_RH4_6th_240912_HiC2_AAGCTFGM5_R2.fastq.gz
-RH4_10th_240905	RH4	/data/khanlab/projects/DATA/Sample_RH4_10th_240905_HiC3_AAGCTFGM5/Sample_RH4_10th_240905_HiC3_AAGCTFGM5_R1.fastq.gz	/data/khanlab/projects/DATA/Sample_RH4_10th_240905_HiC3_AAGCTFGM5/Sample_RH4_10th_240905_HiC3_AAGCTFGM5_R2.fastq.gz
-RH4_11th_240912	RH4	/data/khanlab/projects/DATA/Sample_RH4_11th_240912_HiC4_AAGCTFGM5/Sample_RH4_11th_240912_HiC4_AAGCTFGM5_R1.fastq.gz	/data/khanlab/projects/DATA/Sample_RH4_11th_240912_HiC4_AAGCTFGM5/Sample_RH4_11th_240912_HiC4_AAGCTFGM5_R2.fastq.gz
+library1	sample1	/path/to/library1_R1.fastq.gz	/path/to/library1_R2.fastq.gz
+library2	sample1	/path/to/library2_R1.fastq.gz	/path/to/library2_R2.fastq.gz
