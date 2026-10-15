@@ -147,6 +147,10 @@ Modules are listed in [resources/tools.yaml](resources/tools.yaml).
 
 The pipeline version is in [VERSION](VERSION) and changes are listed in [CHANGELOG.md](CHANGELOG.md). Each run records the pipeline version, git commit and launcher version in `runinfo.yaml` and `results/pipeline_version.txt`. The launch script is a copy of [biowulf-snakemake-launcher](https://github.com/CCRGeneticsBranch/biowulf-snakemake-launcher) (`bin/launcher.sh`).
 
+## License
+
+Original pipeline code and documentation are licensed under MIT; see [LICENSE](LICENSE). Third-party software and reference resources retain their own terms. The MIT license does not grant redistribution rights for external or bundled third-party resources.
+
 ## Acknowledgments
 
 Thank you to Hsien-Chao Chou for sharing library merging and topology scripts.
